@@ -17,7 +17,9 @@
   const fm = $('#fm');
   // vista previa y validación en vivo
   $$('input[type=file]', fm).forEach(i => i.onchange = () => { const p = $(`[data-prev="${i.name}"]`); const f = i.files[0];
-    if (f && /^image\//.test(f.type)) { p.src = URL.createObjectURL(f); p.hidden = false; } else p.hidden = true; });
+    const box = i.closest('.f'); $('.msg', box).textContent = '';
+    if (f && !esImagen(f)) { i.value = ''; p.hidden = true; box.classList.add('bad'); $('.msg', box).textContent = 'Solo se aceptan imágenes (JPG o PNG). Toma una foto o elige una imagen.'; return; }
+    box.classList.remove('bad'); if (f) { p.src = URL.createObjectURL(f); p.hidden = false; } else p.hidden = true; });
   const clabe = $('[name=clabe]', fm); clabe.oninput = () => { const v = clabe.value.replace(/\D/g, ''); const f = clabe.closest('.f');
     if (v.length === 18) { const r = Logica.validarClabe(v, $('[name=banco]', fm).value); $('.msg', f).textContent = r.ok ? '' : r.motivo; $('.msg', f).className = r.ok ? 'ok msg' : 'msg';
       if (r.ok) $('.msg', f).textContent = '✓ CLABE válida' + (r.banco ? ' · ' + r.banco : '') + (r.aviso ? ' — ' + r.aviso : ''); } else { $('.msg', f).className = 'msg'; $('.msg', f).textContent = ''; } };
@@ -30,7 +32,7 @@
     const datos = {};
     for (const c of Logica.CAMPOS_ALTA) { if (!c.k || ['file', 'firma'].includes(c.t)) continue; let v = (fm.elements[c.k].value || '').trim(); if (c.up) v = v.toUpperCase(); if (['clabe', 'tel'].includes(c.t) || ['numero_cuenta', 'cp'].includes(c.k)) v = v.replace(/\s/g, ''); datos[c.k] = v; }
     const errores = Logica.validarAlta(datos);
-    for (const c of Logica.CAMPOS_ALTA.filter(c => c.req && c.t === 'file')) if (!fm.elements[c.k].files.length) errores[c.k] = 'Sube la imagen';
+    for (const c of Logica.CAMPOS_ALTA.filter(c => c.req && c.t === 'file')) if (!fm.elements[c.k].files.length) errores[c.k] = 'Sube la imagen'; else if (!esImagen(fm.elements[c.k].files[0])) errores[c.k] = 'Solo imágenes JPG o PNG';
     for (const [k, p] of Object.entries(pads)) if (p.vacio()) errores[k] = 'Dibuja tu firma';
     marcarErrores(errores);
     if (Object.keys(errores).length) { $('#gErr').textContent = 'Revisa los campos marcados en rojo.'; return; }
@@ -39,10 +41,10 @@
     try {
       const arch = {};
       for (const c of Logica.CAMPOS_ALTA.filter(c => c.t === 'file')) { const f = fm.elements[c.k].files[0]; if (!f) continue; const blob = await comprimir(f);
-        arch[c.k] = await Envio.subir(token, c.k, blob, /pdf/.test(f.type) ? 'pdf' : blob.type === 'image/png' ? 'png' : 'jpg'); }
+        arch[c.k] = await Envio.subir(token, c.k, blob, blob.type === 'image/png' ? 'png' : 'jpg'); }
       for (const [k, p] of Object.entries(pads)) arch[k] = await Envio.subir(token, k, await p.blob(), 'png');
       await Envio.alta(token, {...datos, _archivos: arch, _enviado: new Date().toISOString()});
-      fin('¡Listo, recibimos tus datos!', 'Tu asesor revisará la información y te contactará para firmar tu contrato.', true);
+      fin('¡Listo, recibimos tus datos!', 'Revisaremos tu información y te contactaremos para firmar tu contrato.', true);
       window.scrollTo(0, 0);
     } catch (err) { b.disabled = false; b.textContent = 'Enviar'; $('#gErr').textContent = 'No se pudo enviar: ' + err.message; }
   };
