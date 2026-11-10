@@ -37,7 +37,7 @@ function campoHtml(c, valor = '') {
   if (c.t === 'select') input = `<select name="${c.k}"><option value="">— elige —</option>${c.o.map(o => `<option ${o === valor ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
   else if (c.t === 'textarea') input = `<textarea name="${c.k}" rows="3">${esc(valor)}</textarea>`;
   else if (c.t === 'firma') input = `<canvas class="sig" data-k="${c.k}"></canvas><div class="row"><button type="button" data-clear="${c.k}">Borrar firma</button><span class="legal">Firma como en tu INE.</span></div>`;
-  else if (c.t === 'file') input = `<input type="file" name="${c.k}" accept="image/*,.pdf"><img class="prev" data-prev="${c.k}" hidden>`;
+  else if (c.t === 'file') input = `<input type="file" name="${c.k}" accept="image/jpeg,image/png,image/webp"><div class="legal">Solo fotos o imágenes (JPG o PNG).</div><img class="prev" data-prev="${c.k}" hidden>`;
   else input = `<input name="${c.k}" type="${c.t === 'date' ? 'date' : c.t === 'email' ? 'email' : c.t === 'tel' ? 'tel' : 'text'}" ${['clabe', 'tel'].includes(c.t) || /cp|cuenta/.test(c.k) ? 'inputmode="numeric"' : ''} value="${esc(valor || c.def || '')}" ${c.up ? 'style="text-transform:uppercase"' : ''}>`;
   return `<div class="f" data-f="${c.k}"><label>${esc(c.l)}${req}</label>${input}<div class="msg"></div></div>`;
 }
@@ -59,9 +59,11 @@ function firmas() {
   return out;
 }
 
-/** Reduce fotos grandes del celular antes de subirlas. */
+const esImagen = f => !!f && /^image\/(jpeg|png|webp)$/i.test(f.type || '') || (!!f && !f.type && /\.(jpe?g|png|webp)$/i.test(f.name || ''));
+/** Reduce fotos grandes del celular antes de subirlas y las deja en JPG/PNG (lo que Word acepta en el contrato). */
 async function comprimir(file, max = 1600) {
-  if (!/^image\//.test(file.type) || file.size < 400000) return file;
+  if (!esImagen(file)) throw new Error('Solo se aceptan imágenes JPG o PNG');
+  if (file.size < 400000 && /png|jpeg/i.test(file.type)) return file;
   const img = await new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = URL.createObjectURL(file); });
   const k = Math.min(1, max / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = img.width * k; cv.height = img.height * k;
   cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
